@@ -20,3 +20,9 @@ Kalman filter to reduce the noise in the position signal.
 parameters for your current setup
 4. Open RViz or run `rostopic echo /radio_pose` to see the current pose of
 your tag
+
+# Parameters and Tuning
+In `param/demo.yaml` you will a list of customizable parameters such as the
+the transition matrix, observation matrix, initial state estimate, and initial
+covariance estimate used for the Kalman filter. You should change this based
+on the setup of your system.
