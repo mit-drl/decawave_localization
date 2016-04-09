@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import pykalman
 import scipy.optimize as opt
 import rospy
 import serial
@@ -25,6 +26,12 @@ class DecaWaveLocalization:
         self.ps = PoseStamped()
         self.ps.header.frame_id = frame_id
         self.ser = serial.Serial(port=port, timeout=10, baudrate=baud)
+        self.last = None
+        self.kf = pykalman.KalmanFilter(
+            transition_matrices=[[1, 0], [0, 1]],
+            observation_matrices=[[1, 0], [0, 1]])
+        self.fsm = np.array([0, 0])
+        self.fsc = np.array([[1e-3, 0], [0, 1e-3]])
 
     def start(self):
         self.ser.close()
@@ -32,53 +39,63 @@ class DecaWaveLocalization:
         self.run()
 
     def run(self):
-        range0 = -1
-        range1 = -1
-        range2 = -1
         while not rospy.is_shutdown():
-            raw_data = self.ser.readline()
-            if raw_data == serial.to_bytes([]):
-                print "serial timeout"
+            if self.last is None:
+                x0 = self.anchors[0]
             else:
-                data = raw_data.split()
+                x0 = self.last
+            try:
+                dists = self.get_dists()
+            except ValueError:
+                continue
 
-            if data[0] == 'mc':
-                mask = int(data[1], 16)
-                if (mask & 0x01):
-                    range0 = int(data[2], 16) / 1000.0
-                if (mask & 0x02):
-                    range1 = int(data[3], 16) / 1000.0
-                if (mask & 0x04):
-                    range2 = int(data[4], 16) / 1000.0
-
-                dists = np.array([range0, range1, range2])
-                res = opt.minimize(self.error, self.anchors[0],
-                                   # jac=self.jac,
-                                   args=(dists),
-                                   method="SLSQP")
-                if res.success:
-                    self.ps.pose.position.x = res.x[0]
-                    self.ps.pose.position.y = res.x[1]
-                    self.ps.pose.position.z = 0
-                    self.ps.header.stamp = rospy.get_rostime()
-                    self.pub.publish(self.ps)
-                    self.rate.sleep()
+            res = opt.minimize(
+                self.error, x0, jac=self.jac, args=(dists),
+                method="SLSQP")
+            self.fsm, self.fsc = self.kf.filter_update(
+                self.fsm, self.fsc, res.x)
+            if res.success:
+                self.ps.pose.position.x = self.fsm[0]
+                self.ps.pose.position.y = self.fsm[1]
+                self.ps.pose.position.z = 0
+                self.ps.header.stamp = rospy.get_rostime()
+                self.pub.publish(self.ps)
+                self.rate.sleep()
+                self.last = res.x
         self.ser.close()
 
-    def jac(self, x, dists):
-        diff_x = 0.0
-        diff_y = 0.0
-        for anchor, dist in zip(self.anchors, dists):
-            diff_x += anchor[0] - x[0]
-            diff_y += anchor[1] - x[1]
-        err_x = 4 * self.error(x, dists, pw=1) * diff_x
-        err_y = 4 * self.error(x, dists, pw=1) * diff_y
-        return np.array([err_x, err_y])
+    def get_dists(self):
+        dists = np.zeros((3, 1))
+        raw_data = self.ser.readline()
+        if raw_data == serial.to_bytes([]):
+            print "serial timeout"
+        else:
+            data = raw_data.split()
 
-    def error(self, x, dists, pw=2):
+        if data[0] == 'mc':
+            mask = int(data[1], 16)
+            if (mask & 0x01):
+                dists[0] = int(data[2], 16) / 1000.0
+            if (mask & 0x02):
+                dists[1] = int(data[3], 16) / 1000.0
+            if (mask & 0x04):
+                dists[2] = int(data[4], 16) / 1000.0
+            return dists
+        raise ValueError
+
+    def jac(self, x, dists):
+        jac_x = 0.0
+        jac_y = 0.0
+        for anchor, dist in zip(self.anchors, dists):
+            err = pow(dist, 2) - pow(np.linalg.norm(x - anchor), 2)
+            jac_x += err * (anchor[0] - x[0])
+            jac_y += err * (anchor[1] - x[1])
+        return np.array([jac_x, jac_y])
+
+    def error(self, x, dists):
         err = 0.0
         for anchor, dist in zip(self.anchors, dists):
-            err += pow(pow(dist, 2) - pow(np.linalg.norm(x - anchor), 2), pw)
+            err += pow(pow(dist, 2) - pow(np.linalg.norm(x - anchor), 2), 2)
         return err
 
 if __name__ == "__main__":
