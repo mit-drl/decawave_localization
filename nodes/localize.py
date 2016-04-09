@@ -44,11 +44,8 @@ class DecaWaveLocalization:
                 x0 = self.anchors[0]
             else:
                 x0 = self.last
-            try:
-                dists = self.get_dists()
-            except ValueError:
-                continue
 
+            dists = self.get_dists()
             res = opt.minimize(
                 self.error, x0, jac=self.jac, args=(dists),
                 method="SLSQP")
@@ -65,23 +62,23 @@ class DecaWaveLocalization:
         self.ser.close()
 
     def get_dists(self):
-        dists = np.zeros((3, 1))
-        raw_data = self.ser.readline()
-        if raw_data == serial.to_bytes([]):
-            print "serial timeout"
-        else:
-            data = raw_data.split()
+        while not rospy.is_shutdown():
+            dists = np.zeros((3, 1))
+            raw_data = self.ser.readline()
+            if raw_data == serial.to_bytes([]):
+                print "serial timeout"
+            else:
+                data = raw_data.split()
 
-        if data[0] == 'mc':
-            mask = int(data[1], 16)
-            if (mask & 0x01):
-                dists[0] = int(data[2], 16) / 1000.0
-            if (mask & 0x02):
-                dists[1] = int(data[3], 16) / 1000.0
-            if (mask & 0x04):
-                dists[2] = int(data[4], 16) / 1000.0
-            return dists
-        raise ValueError
+            if data[0] == 'mc':
+                mask = int(data[1], 16)
+                if (mask & 0x01):
+                    dists[0] = int(data[2], 16) / 1000.0
+                if (mask & 0x02):
+                    dists[1] = int(data[3], 16) / 1000.0
+                if (mask & 0x04):
+                    dists[2] = int(data[4], 16) / 1000.0
+                return dists
 
     def jac(self, x, dists):
         jac_x = 0.0
