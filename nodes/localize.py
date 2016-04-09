@@ -46,39 +46,41 @@ class DecaWaveLocalization:
                 x0 = self.last
 
             dists = self.get_dists()
-            res = opt.minimize(
-                self.error, x0, jac=self.jac, args=(dists),
-                method="SLSQP")
-            self.fsm, self.fsc = self.kf.filter_update(
-                self.fsm, self.fsc, res.x)
-            if res.success:
-                self.ps.pose.position.x = self.fsm[0]
-                self.ps.pose.position.y = self.fsm[1]
-                self.ps.pose.position.z = 0
-                self.ps.header.stamp = rospy.get_rostime()
-                self.pub.publish(self.ps)
-                self.rate.sleep()
+            if not dists is None:
+                res = opt.minimize(
+                    self.error, x0, jac=self.jac, args=(dists),
+                    method="SLSQP")
+                self.fsm, self.fsc = self.kf.filter_update(
+                    self.fsm, self.fsc, res.x)
                 self.last = res.x
+            else:
+                self.fsm, self.fsc = self.kf.filter_update(
+                    self.fsm, self.fsc)
+            self.ps.pose.position.x = self.fsm[0]
+            self.ps.pose.position.y = self.fsm[1]
+            self.ps.pose.position.z = 0
+            self.ps.header.stamp = rospy.get_rostime()
+            self.pub.publish(self.ps)
+            self.rate.sleep()
         self.ser.close()
 
     def get_dists(self):
-        while not rospy.is_shutdown():
-            dists = np.zeros((3, 1))
-            raw_data = self.ser.readline()
-            if raw_data == serial.to_bytes([]):
-                print "serial timeout"
-            else:
-                data = raw_data.split()
+        dists = np.zeros((3, 1))
+        raw_data = self.ser.readline()
+        if raw_data == serial.to_bytes([]):
+            print "serial timeout"
+        else:
+            data = raw_data.split()
 
-            if len(data) > 0 and data[0] == 'mc':
-                mask = int(data[1], 16)
-                if (mask & 0x01):
-                    dists[0] = int(data[2], 16) / 1000.0
-                if (mask & 0x02):
-                    dists[1] = int(data[3], 16) / 1000.0
-                if (mask & 0x04):
-                    dists[2] = int(data[4], 16) / 1000.0
-                return dists
+        if len(data) > 0 and data[0] == 'mc':
+            mask = int(data[1], 16)
+            if (mask & 0x01):
+                dists[0] = int(data[2], 16) / 1000.0
+            if (mask & 0x02):
+                dists[1] = int(data[3], 16) / 1000.0
+            if (mask & 0x04):
+                dists[2] = int(data[4], 16) / 1000.0
+            return dists
 
     def jac(self, x, dists):
         jac_x = 0.0
