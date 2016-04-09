@@ -1,0 +1,3 @@
+pykalman
+numpy
+scipy

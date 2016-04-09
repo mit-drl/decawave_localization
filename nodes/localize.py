@@ -9,7 +9,7 @@ from geometry_msgs.msg import PoseStamped
 
 
 NODE_NAME = "decawave_localization"
-POSE_TOPIC = "radio_pose"
+POSE_TOPIC = "pose"
 
 
 class DecaWaveLocalization:
@@ -18,9 +18,9 @@ class DecaWaveLocalization:
         port = rospy.get_param('~port', '/dev/ttyACM3')
         baud = rospy.get_param('~baud', 9600)
         frame_id = rospy.get_param("~frame_id", "map")
-        self.anchors = [np.array([0, 0]),
-                        np.array([0.5, 0.4]),
-                        np.array([0.34, 0])]
+        trans_mat = np.array(rospy.get_param("~transition_matrix"))
+        obs_mat = np.array(rospy.get_param("~observation_matrix"))
+        self.anchors = rospy.get_param("~anchors")
         self.pub = rospy.Publisher(POSE_TOPIC, PoseStamped, queue_size=1)
         self.rate = rospy.Rate(30)
         self.ps = PoseStamped()
@@ -28,10 +28,10 @@ class DecaWaveLocalization:
         self.ser = serial.Serial(port=port, timeout=10, baudrate=baud)
         self.last = None
         self.kf = pykalman.KalmanFilter(
-            transition_matrices=[[1, 0], [0, 1]],
-            observation_matrices=[[1, 0], [0, 1]])
-        self.fsm = np.array([0, 0])
-        self.fsc = np.array([[1e-3, 0], [0, 1e-3]])
+            transition_matrices=trans_mat.reshape(2, 2),
+            observation_matrices=obs_mat.reshape(2, 2))
+        self.fsm = np.array(rospy.get_param("~initial_state"))
+        self.fsc = np.array(rospy.get_param("~initial_cov")).reshape(2, 2)
 
     def start(self):
         self.ser.close()
@@ -70,7 +70,7 @@ class DecaWaveLocalization:
             else:
                 data = raw_data.split()
 
-            if data[0] == 'mc':
+            if len(data) > 0 and data[0] == 'mc':
                 mask = int(data[1], 16)
                 if (mask & 0x01):
                     dists[0] = int(data[2], 16) / 1000.0

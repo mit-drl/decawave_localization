@@ -1,4 +1,10 @@
 <?xml version="1.0"?>
 <launch>
-
+    <node pkg="decawave_localization" type="localize.py" name="decawave_localization" output="screen">
+        <param name="port" value="/dev/ttyACM3"/>
+        <param name="baud" value="9600"/>
+        <param name="frame_id" value="map"/>
+        <rosparam file="$(find decawave_localization)/param/demo.yaml"/>
+        <remap from="pose" to="/radio_pose"/>
+    </node>
 </launch>
