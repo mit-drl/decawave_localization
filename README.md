@@ -1,5 +1,6 @@
 # DecaWave Localization ROS Node
-Localization ROS node for the DecaWave EVK1000. This ROS node uses known
+This ROS node for localization using a set of the DecaWave EVK1000.
+This ROS node uses known
 anchor positions to solve for the position of a tag. This approach uses
 a non-linear optimization method to determine the position of the tag which
 makes it more resilient to noise than naive geometric approaches. Also, I use
