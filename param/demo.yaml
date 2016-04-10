@@ -5,4 +5,4 @@ anchors:
 transition_matrix: [1, 0, 0, 1]
 observation_matrix: [1, 0, 0, 1]
 initial_state: [0, 0]
-initial_cov: [0.0001, 0, 0, 0.0001]
+initial_cov: [0.01, 0, 0, 0.01]
