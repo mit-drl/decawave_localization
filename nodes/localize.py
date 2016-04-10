@@ -6,10 +6,12 @@ import scipy.optimize as opt
 import rospy
 import serial
 from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped
 
 
 NODE_NAME = "decawave_localization"
 POSE_TOPIC = "pose"
+POSE_COV_TOPIC = "pose_cov"
 
 
 class DecaWaveLocalization:
@@ -22,9 +24,14 @@ class DecaWaveLocalization:
         obs_mat = np.array(rospy.get_param("~observation_matrix"))
         self.anchors = rospy.get_param("~anchors")
         self.pub = rospy.Publisher(POSE_TOPIC, PoseStamped, queue_size=1)
-        self.rate = rospy.Rate(30)
+        self.cov_pub = rospy.Publisher(POSE_COV_TOPIC,
+                                       PoseWithCovarianceStamped,
+                                       queue_size=1)
+        self.rate = rospy.Rate(rospy.get_param("frequency", 30))
         self.ps = PoseStamped()
+        self.pwcs = PoseWithCovarianceStamped()
         self.ps.header.frame_id = frame_id
+        self.pwcs.header.frame_id = frame_id
         self.ser = serial.Serial(port=port, timeout=10, baudrate=baud)
         self.last = None
         self.kf = pykalman.KalmanFilter(
@@ -60,9 +67,24 @@ class DecaWaveLocalization:
             self.ps.pose.position.y = self.fsm[1]
             self.ps.pose.position.z = 0
             self.ps.header.stamp = rospy.get_rostime()
+            self.pwcs.pose.pose.position.x = self.fsm[0]
+            self.pwcs.pose.pose.position.y = self.fsm[1]
+            self.pwcs.pose.pose.position.z = 0
+            self.pwcs.pose.covariance = self.covariance_matrix(
+                self.fsc[0][0], self.fsc[1][1])
+            self.pwcs.header.stamp = rospy.get_rostime()
             self.pub.publish(self.ps)
+            self.cov_pub.publish(self.pwcs)
             self.rate.sleep()
         self.ser.close()
+
+    def covariance_matrix(self, x_p, y_p):
+        return [x_p, 0, 0, 0, 0, 0,
+                0, y_p, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0]
 
     def get_dists(self):
         dists = np.zeros((3, 1))
