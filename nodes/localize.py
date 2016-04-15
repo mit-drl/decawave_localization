@@ -7,11 +7,15 @@ import rospy
 import serial
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import Point32
+from sensor_msgs.msg import PointCloud
+from sensor_msgs.msg import ChannelFloat32
 
 
 NODE_NAME = "decawave_localization"
 POSE_TOPIC = "pose"
 POSE_COV_TOPIC = "pose_cov"
+ERROR_PC_TOPIC = "error_cloud"
 
 
 class DecaWaveLocalization:
@@ -24,6 +28,8 @@ class DecaWaveLocalization:
         obs_mat = np.array(rospy.get_param("~observation_matrix"))
         self.anchors = rospy.get_param("~anchors")
         self.pub = rospy.Publisher(POSE_TOPIC, PoseStamped, queue_size=1)
+        self.error_pc_pub = rospy.Publisher(
+            ERROR_PC_TOPIC, PointCloud, queue_size=1)
         self.cov_pub = rospy.Publisher(POSE_COV_TOPIC,
                                        PoseWithCovarianceStamped,
                                        queue_size=1)
@@ -51,15 +57,16 @@ class DecaWaveLocalization:
                 x0 = self.anchors[0]
             else:
                 x0 = self.last
-
             dists = self.get_dists()
             if not dists is None:
+                print dists
                 res = opt.minimize(
-                    self.error, x0, jac=self.jac, args=(dists),
+                    self.error, x0, args=(dists,),
                     method="SLSQP")
                 self.fsm, self.fsc = self.kf.filter_update(
                     self.fsm, self.fsc, res.x)
                 self.last = res.x
+                self.publish_error_pc(dists)
             else:
                 self.fsm, self.fsc = self.kf.filter_update(
                     self.fsm, self.fsc)
@@ -87,7 +94,7 @@ class DecaWaveLocalization:
                 0, 0, 0, 0, 0, 0]
 
     def get_dists(self):
-        dists = np.zeros((3, 1))
+        dists = np.zeros((3,))
         raw_data = self.ser.readline()
         if raw_data == serial.to_bytes([]):
             print "serial timeout"
@@ -117,7 +124,34 @@ class DecaWaveLocalization:
         err = 0.0
         for anchor, dist in zip(self.anchors, dists):
             err += pow(pow(dist, 2) - pow(np.linalg.norm(x - anchor), 2), 2)
+            # err += abs(dist - np.linalg.norm(x - anchor))
         return err
+
+    def publish_error_pc(self, dists):
+        xmin = -5
+        xmax = 5
+        ymin = -5
+        ymax = 5
+        xres = 0.2
+        yres = 0.2
+        pc = PointCloud()
+        ch = ChannelFloat32()
+        pc.header.stamp = rospy.get_rostime()
+        pc.header.frame_id = "map"
+        ch.name = "error"
+        ys = np.linspace(ymin, ymax, (ymax - ymin) / yres)
+        xs = np.linspace(xmin, xmax, (xmax - xmin) / xres)
+        for x in xs:
+            for y in ys:
+                p = Point32()
+                p.x = x
+                p.y = y
+                p.z = -0.5
+                pc.points.append(p)
+                ch.values.append(self.error(np.array([x, y]), dists))
+        pc.channels.append(ch)
+        self.error_pc_pub.publish(pc)
+
 
 if __name__ == "__main__":
     rospy.init_node(NODE_NAME, anonymous=False)
