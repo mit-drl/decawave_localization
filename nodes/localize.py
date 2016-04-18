@@ -47,7 +47,6 @@ class DecaWaveLocalization:
             observation_matrices=obs_mat.reshape(2, 2))
         self.fsm = np.array(rospy.get_param("~initial_state"))
         self.fsc = np.array(rospy.get_param("~initial_cov")).reshape(2, 2)
-        self.sigs = [0.05, 0.05, 0.05]
 
     def start(self):
         self.ser.close()
@@ -62,12 +61,12 @@ class DecaWaveLocalization:
                 x0 = self.last
             dists = self.get_dists()
             if not dists is None:
-                pos = self.get_position(dists)
+                # pos = self.get_position(dists)
                 res = opt.minimize(
                     self.error, x0, jac=self.jac, args=(dists,),
                     method="SLSQP")
                 self.fsm, self.fsc = self.kf.filter_update(
-                    self.fsm, self.fsc, pos)
+                    self.fsm, self.fsc, res.x)
                 self.last = res.x
                 # self.publish_error_pc(dists)
             else:
@@ -114,15 +113,17 @@ class DecaWaveLocalization:
             left = list(inds - set([i, j]))[0]
             ps = self.get_circle_intersections(
                 dists[i], dists[j], self.anchors[i], self.anchors[j])
-            ps.extend(self.get_circle_intersections(
-                dists[i], dists[left], self.anchors[i], self.anchors[left]))
-            ps.extend(self.get_circle_intersections(
-                dists[left], dists[j], self.anchors[left], self.anchors[j]))
+            inner_err = None
+            p_star = None
             for p in ps:
-                n_err = self.error(p, dists)
-                if err is None or n_err < err:
-                    err = n_err
-                    ret_p = p
+                dist = np.linalg.norm(p - self.anchors[left])
+                if inner_err is None or dist < inner_err:
+                    inner_err = dist
+                    p_star = p
+            n_err = self.error(p_star, dists)
+            if err is None or n_err < err:
+                err = n_err
+                ret_p = p_star
         return ret_p
 
     def get_dists(self):
