@@ -68,7 +68,7 @@ class DecaWaveLocalization:
                 self.fsm, self.fsc = self.kf.filter_update(
                     self.fsm, self.fsc, res.x)
                 self.last = res.x
-                # self.publish_error_pc(dists)
+                self.publish_error_pc(dists)
             else:
                 self.fsm, self.fsc = self.kf.filter_update(
                     self.fsm, self.fsc)
@@ -178,8 +178,8 @@ class DecaWaveLocalization:
         xmax = 5
         ymin = -5
         ymax = 5
-        xres = 0.2
-        yres = 0.2
+        xres = 0.08
+        yres = 0.08
         pc = PointCloud()
         ch = ChannelFloat32()
         pc.header.stamp = rospy.get_rostime()
@@ -194,9 +194,7 @@ class DecaWaveLocalization:
                 p.y = y
                 p.z = -0.5
                 pc.points.append(p)
-                # ch.values.append(self.error(np.array([x, y]), dists))
-                ch.values.append(self.gauss_prob(np.array([x, y]), dists,
-                                                 self.sigs))
+                ch.values.append(self.error(np.array([x, y]), dists))
         pc.channels.append(ch)
         self.error_pc_pub.publish(pc)
 
