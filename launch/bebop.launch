@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- starts bebop driver -->
+    <include file="$(find bebop_driver)/launch/bebop_node.launch"/>
+
+    <!-- starts joystick control -->
+    <include file="$(find bebop_tools)/launch/joy_teleop.launch"/>
+</launch>
