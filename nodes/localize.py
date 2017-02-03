@@ -32,7 +32,7 @@ def get_two_points_distance(p1, p2):
     return math.sqrt(pow((p1.x - p2.x), 2) + pow((p1.y - p2.y), 2))
 
 def get_two_circles_intersecting_points(c1, c2):
-    p1 = c1.center 
+    p1 = c1.center
     p2 = c2.center
     r1 = c1.radius
     r2 = c2.radius
@@ -44,7 +44,7 @@ def get_two_circles_intersecting_points(c1, c2):
 
     a = (pow(r1, 2) - pow(r2, 2) + pow(d, 2)) / (2*d)
     h  = math.sqrt(pow(r1, 2) - pow(a, 2))
-    x0 = p1.x + a*(p2.x - p1.x)/d 
+    x0 = p1.x + a*(p2.x - p1.x)/d
     y0 = p1.y + a*(p2.y - p1.y)/d
     rx = -(p2.y - p1.y) * (h/d)
     ry = -(p2.x - p1.x) * (h / d)
@@ -185,8 +185,8 @@ class DecaWaveLocalization:
         # inner_points = []
         # for p in get_all_intersecting_points(circles):
         #     if is_contained_in_circles(p, circles):
-        #         inner_points.append(p) 
-        # if len(inner_points) > 0:   
+        #         inner_points.append(p)
+        # if len(inner_points) > 0:
         #     center = get_polygon_center(inner_points)
         #     return center.x, center.y
         # print xs

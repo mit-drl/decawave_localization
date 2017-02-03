@@ -1,8 +1,10 @@
 <?xml version="1.0"?>
 <launch>
 
-    <arg name="car_frame_id" value="car/base_link"/>
-    <arg name="map_frame_id" value="map"/>
+    <arg name="car_frame_id" default="golfcartlw/base_link"/>
+    <arg name="pose_cov_topic" default="/pose_cov"/>
+    <!-- <arg name="map_frame_id" value="map"/> -->
+
     <rosparam param="tag_names">
         ["tag_left_back", "tag_left_front", "tag_right_front", "tag_right_center"]
     </rosparam>
@@ -80,8 +82,8 @@
  -->
     <!-- Dummy transform from map to car -->
 
-    <node pkg="tf" type="static_transform_publisher" name="map_to_car"
-        args="1 0 0 0 0 0 $(arg map_frame_id) $(arg car_frame_id) 100" />
+    <!-- <node pkg="tf" type="static_transform_publisher" name="map_to_car" -->
+    <!--     args="1 0 0 0 0 0 $(arg map_frame_id) $(arg car_frame_id) 100" /> -->
 
     <!-- Running the trilateration node -->
     <node pkg="decawave_localization" type="localize.py"
@@ -91,6 +93,7 @@
         <param name="cov_x" value="0.6"/>
         <param name="cov_y" value="0.6"/>
         <param name="cov_sensor" value="0.3"/>
+        <remap from="pose_cov" to="$(arg pose_cov_topic)"/>
         <rosparam>
             tag_range_topics:
                 - tag_left_front/range_filtered
