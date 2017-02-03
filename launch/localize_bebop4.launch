@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
 
-    <arg name="car_frame_id" default="golfcartlw/base_link"/>
+    <arg name="car_frame_id" default="car/base_link"/>
     <arg name="pose_cov_topic" default="/pose_cov"/>
     <!-- <arg name="map_frame_id" value="map"/> -->
 
@@ -100,7 +100,7 @@
                 - tag_left_back/range_filtered
                 - tag_right_center/range_filtered
                 - tag_right_front/range_filtered
-            transition_matrix: [0.01, 0, 0, 0.01]
+            transition_matrix: [1, 0, 0, 1]
             observation_matrix: [1, 0, 0, 1]
             initial_state: [0, 0]
             initial_cov: [0.1, 0, 0, 0.1]

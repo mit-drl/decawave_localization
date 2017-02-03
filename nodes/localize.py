@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import division
 import tf
 import numpy as np
 import pykalman
@@ -9,7 +10,6 @@ from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from sensor_msgs.msg import Range
 import itertools
-
 
 NODE_NAME = "decawave_localization"
 POSE_TOPIC = "pose"
@@ -86,11 +86,14 @@ class DecaWaveLocalization:
         trans_mat = np.array(rospy.get_param("~transition_matrix"))
         obs_mat = np.array(rospy.get_param("~observation_matrix"))
         self.ps_pub = rospy.Publisher(POSE_TOPIC, PoseStamped, queue_size=1)
+        self.ps_tri_pub = rospy.Publisher("/pose_tri", PoseStamped, queue_size=1)
         self.ps_cov_pub = rospy.Publisher(
             POSE_COV_TOPIC, PoseWithCovarianceStamped, queue_size=1)
         self.rate = rospy.Rate(rospy.get_param("frequency", 30))
         self.ps = PoseStamped()
         self.ps.header.frame_id = self.frame_id
+        self.ps_tri = PoseStamped()
+        self.ps_tri.header.frame_id = self.frame_id
         self.ps_cov = PoseWithCovarianceStamped()
         self.ps_cov.header.frame_id = self.frame_id
         self.last = None
@@ -118,11 +121,14 @@ class DecaWaveLocalization:
         except:
             return
 
+        #print self.tag_pos
+
         dists = self.ranges.values()
         # print self.ranges
         # print self.tag_pos
         # print dists
         # print self.tag_pos
+        #print self.ranges
         if len(self.tag_pos.keys()) == len(dists) and len(self.tag_pos.keys()) >= 3:
 
             # get combinations of 3 from the 4 distances
@@ -130,8 +136,6 @@ class DecaWaveLocalization:
             xs, ys = [], []
 
             for combo in combinations:
-                if 2 in combo:
-                    pass
                 distances = [dists[i] for i in combo]
                 all_keys = self.ranges.keys()
                 tag_keys = [all_keys[i] for i in combo]
@@ -139,23 +143,32 @@ class DecaWaveLocalization:
                 xs.append(x)
                 ys.append(y)
 
-            x = np.mean(xs)
-            y = np.mean(ys)
-            #x = xs[0]
-            #y = ys[0]
+            x_tri = np.mean(xs)
+            y_tri = np.mean(ys)
+            x, y = self.find_xy()
+            # x = xs[0]
+            # y = ys[0]
 
-            print math.sqrt(x**2 + y**2)
+            #print math.sqrt(x**2 + y**2)
 
             self.fsm, self.fsc = self.kf.filter_update(
-                self.fsm, self.fsc, np.array([x, y]))
-            self.ps.pose.position.x = self.fsm[0]
-            self.ps.pose.position.y = self.fsm[1]
+                self.fsm, self.fsc, np.array([x_tri, y_tri]))
+            self.ps.pose.position.x = x
+            self.ps.pose.position.y = y
             self.ps.header.stamp = rospy.get_rostime()
+            self.ps.header.frame_id = "tag_left_front"
+
+            self.ps_tri.pose.position.x = self.fsm[0]
+            self.ps_tri.pose.position.y = self.fsm[1]
+            self.ps_tri.header.stamp = rospy.get_rostime()
+            self.ps_tri.header.frame_id = "car/base_link"
+
             self.ps_cov.pose.covariance = self.cov_matrix(0.5,
                                                           0.5)
             self.ps_cov.header.stamp = rospy.get_rostime()
             self.ps_cov.pose.pose = self.ps.pose
             self.ps_pub.publish(self.ps)
+            self.ps_tri_pub.publish(self.ps_tri)
             self.ps_cov_pub.publish(self.ps_cov)
 
     def cov_matrix(self, x_cov, y_cov):
@@ -165,6 +178,24 @@ class DecaWaveLocalization:
                 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0]
+
+    def find_xy(self):
+        dl = self.ranges["tag_left_front"]
+        dr = self.ranges["tag_right_front"]
+        tx = 0.115
+        ty = -1
+        D = math.sqrt(tx * tx + ty * ty)
+        alpha = math.atan(-tx / ty)
+        D2 = pow(D, 2)
+        dl2 = pow(dl, 2)
+        dr2 = pow(dr, 2)
+        cos_b = (dl2 - dr2 + D2) / (dl * D)
+        beta = math.acos(cos_b)
+        theta = alpha + beta
+        sin_t = math.sin(theta)
+        x = dl * sin_t
+        y = -dl * math.cos(theta)
+        return x, y
 
     def trilaterate(self, rs, tag_keys):
         # xs, ys, rs = [], [], []
@@ -177,10 +208,10 @@ class DecaWaveLocalization:
             # rs.append(self.ranges[key])
 
 
-            # new_point = point(new_x,new_y)
-            # points.append(new_point)
-            # new_circle = circle(new_point,rs[i])
-            # circles.append(new_circle)
+        #     new_point = point(new_x,new_y)
+        #     points.append(new_point)
+        #     new_circle = circle(new_point,rs[i])
+        #     circles.append(new_circle)
 
         # inner_points = []
         # for p in get_all_intersecting_points(circles):
@@ -188,7 +219,11 @@ class DecaWaveLocalization:
         #         inner_points.append(p)
         # if len(inner_points) > 0:
         #     center = get_polygon_center(inner_points)
+        #     print "worked"
         #     return center.x, center.y
+        # else:
+        #     return 0, 0
+
         # print xs
         # print ys
         # print rs
