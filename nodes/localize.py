@@ -12,10 +12,9 @@ from sensor_msgs.msg import Range
 import itertools
 
 NODE_NAME = "decawave_localization"
-POSE_TOPIC = "pose"
+POSE_TOPIC = "uwb_pose"
 POSE_COV_TOPIC = "pose_cov"
 ERROR_PC_TOPIC = "error_cloud"
-
 
 
 class point(object):
@@ -85,24 +84,24 @@ class DecaWaveLocalization:
         self.frame_id = rospy.get_param("~frame_id", "map")
         trans_mat = np.array(rospy.get_param("~transition_matrix"))
         obs_mat = np.array(rospy.get_param("~observation_matrix"))
+        cov_x = rospy.get_param("~cov_x", 0.6)
+        cov_y = rospy.get_param("~cov_y", 0.6)
+        self.cov = self.cov_matrix(cov_x, cov_y)
         self.ps_pub = rospy.Publisher(POSE_TOPIC, PoseStamped, queue_size=1)
-        self.ps_tri_pub = rospy.Publisher("/pose_tri", PoseStamped, queue_size=1)
         self.ps_cov_pub = rospy.Publisher(
             POSE_COV_TOPIC, PoseWithCovarianceStamped, queue_size=1)
         self.rate = rospy.Rate(rospy.get_param("frequency", 30))
         self.ps = PoseStamped()
         self.ps.header.frame_id = self.frame_id
-        self.ps_tri = PoseStamped()
-        self.ps_tri.header.frame_id = self.frame_id
         self.ps_cov = PoseWithCovarianceStamped()
         self.ps_cov.header.frame_id = self.frame_id
+        self.ps_cov.pose.covariance = self.cov
         self.last = None
         self.kf = pykalman.KalmanFilter(
             transition_matrices=trans_mat.reshape(2, 2),
             observation_matrices=obs_mat.reshape(2, 2))
         self.fsm = np.array(rospy.get_param("~initial_state"))
         self.fsc = np.array(rospy.get_param("~initial_cov")).reshape(2, 2)
-        self.cov_sensor = rospy.get_param("~cov_sensor", 0.01)
         self.listener = tf.TransformListener()
         self.tag_range_topics = rospy.get_param("~tag_range_topics")
         self.subs = list()
@@ -143,32 +142,17 @@ class DecaWaveLocalization:
                 xs.append(x)
                 ys.append(y)
 
-            x_tri = np.mean(xs)
-            y_tri = np.mean(ys)
-            x, y = self.find_xy()
-            # x = xs[0]
-            # y = ys[0]
-
-            #print math.sqrt(x**2 + y**2)
+            x = np.mean(xs)
+            y = np.mean(ys)
 
             self.fsm, self.fsc = self.kf.filter_update(
-                self.fsm, self.fsc, np.array([x_tri, y_tri]))
+                self.fsm, self.fsc, np.array([x, y]))
             self.ps.pose.position.x = x
             self.ps.pose.position.y = y
             self.ps.header.stamp = rospy.get_rostime()
-            self.ps.header.frame_id = "tag_left_front"
-
-            self.ps_tri.pose.position.x = self.fsm[0]
-            self.ps_tri.pose.position.y = self.fsm[1]
-            self.ps_tri.header.stamp = rospy.get_rostime()
-            self.ps_tri.header.frame_id = "car/base_link"
-
-            self.ps_cov.pose.covariance = self.cov_matrix(0.5,
-                                                          0.5)
             self.ps_cov.header.stamp = rospy.get_rostime()
             self.ps_cov.pose.pose = self.ps.pose
             self.ps_pub.publish(self.ps)
-            self.ps_tri_pub.publish(self.ps_tri)
             self.ps_cov_pub.publish(self.ps_cov)
 
     def cov_matrix(self, x_cov, y_cov):
