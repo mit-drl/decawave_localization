@@ -20,28 +20,28 @@
 
     <node name="reader1" type="tag.py" pkg="decawave_localization"
         output="screen">
-        <param name="port" value="/dev/ttyACM1"/>
+        <param name="port" value="/dev/ttyACM0"/>
         <param name="baud" value="115200"/>
         <param name="frequency" value="100"/>
     </node>
 
     <node name="reader2" type="tag.py" pkg="decawave_localization"
         output="screen">
-        <param name="port" value="/dev/ttyACM2"/>
+        <param name="port" value="/dev/ttyACM1"/>
         <param name="baud" value="115200"/>
         <param name="frequency" value="100"/>
     </node>
 
     <node name="reader3" type="tag.py" pkg="decawave_localization"
         output="screen">
-        <param name="port" value="/dev/ttyACM3"/>
+        <param name="port" value="/dev/ttyACM2"/>
         <param name="baud" value="115200"/>
         <param name="frequency" value="100"/>
     </node>
 
     <node name="reader4" type="tag.py" pkg="decawave_localization"
         output="screen">
-        <param name="port" value="/dev/ttyACM4"/>
+        <param name="port" value="/dev/ttyACM3"/>
         <param name="baud" value="115200"/>
         <param name="frequency" value="100"/>
     </node>

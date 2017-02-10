@@ -10,9 +10,9 @@ NODE_NAME = "tag_transforms"
 LIDAR_X = 0.55
 LIDAR_Y = 0.0
 LIDAR_Z = 1.99
-LIDAR_X_OFFSET = 0.45
-LIDAR_Y_OFFSET = 0.29
-LIDAR_Z_OFFSET = 0.14
+LIDAR_X_OFFSET = 1.05
+LIDAR_Y_OFFSET = 0.49
+LIDAR_Z_OFFSET = 0.056
 
 class TagTransform(object):
 
