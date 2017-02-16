@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
 
-    <arg name="car_frame_id" default="golfcartlw/base_link"/>
+    <arg name="car_frame_id" default="white_prius/base_link"/>
     <arg name="pose_cov_topic" default="/uwb_pose_cov"/>
     <arg name="cov_x" default="0.6"/>
     <arg name="cov_y" default="0.6"/>
@@ -20,7 +20,7 @@
 
     <node name="reader1" type="tag.py" pkg="decawave_localization"
         output="screen">
-        <param name="port" value="/dev/ttyACM0"/>
+        <param name="port" value="/dev/ttyACM4"/>
         <param name="baud" value="115200"/>
         <param name="frequency" value="100"/>
     </node>

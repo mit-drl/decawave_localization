@@ -7,9 +7,9 @@ from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
 
 NODE_NAME = "tag_transforms"
-LIDAR_X = 0.55
+LIDAR_X = 1.54
 LIDAR_Y = 0.0
-LIDAR_Z = 1.99
+LIDAR_Z = 1.123
 LIDAR_X_OFFSET = 1.05
 LIDAR_Y_OFFSET = 0.49
 LIDAR_Z_OFFSET = 0.056
