@@ -35,11 +35,13 @@ class TagTransform(object):
 		while not rospy.is_shutdown():
 			x = LIDAR_X - LIDAR_X_OFFSET
 			y = LIDAR_Y + LIDAR_Y_OFFSET
+			z = LIDAR_Z - LIDAR_Z_OFFSET
 			for i, key in enumerate(keys):
 				tag = self.transforms[key]
 				x = x + tag['x']
 				y = y + tag['y']
-				self.br.sendTransform((x, y, LIDAR_Z - LIDAR_Z_OFFSET),
+				z = z + tag['z']
+				self.br.sendTransform((x, y, z),
 						tf.transformations.quaternion_from_euler(0, 0, 0),
 						rospy.Time.now(),
 						self.tag_names[i],
