@@ -21,7 +21,8 @@ class DecaWaveLocalization:
         self.frame_id = rospy.get_param("~frame_id", "map")
         cov_x = rospy.get_param("~cov_x", 0.6)
         cov_y = rospy.get_param("~cov_y", 0.6)
-        self.cov = self.cov_matrix(cov_x, cov_y)
+        cov_z = rospy.get_param("~cov_z", 0.6)
+        self.cov = self.cov_matrix(cov_x, cov_y, cov_z)
         self.ps_pub = rospy.Publisher(POSE_TOPIC, PoseStamped, queue_size=1)
         self.ps_cov_pub = rospy.Publisher(
             POSE_COV_TOPIC, PoseWithCovarianceStamped, queue_size=1)
@@ -58,39 +59,42 @@ class DecaWaveLocalization:
     def jac(self, x):
         jac_x = 0.0
         jac_y = 0.0
+        jac_z = 0.0
         for tag_id in self.ranges.keys():
             tag = self.tag_pos[tag_id]
             dist = self.ranges[tag_id]
             err = pow(dist, 2) - pow(np.linalg.norm(x - tag), 2)
             jac_x += err * (tag[0] - x[0])
             jac_y += err * (tag[1] - x[1])
-        return np.array([jac_x, jac_y])
+            jac_z += err * (tag[2] - x[2])
+        return np.array([jac_x, jac_y, jac_z])
 
     def range_cb(self, rng):
         self.ranges[rng.header.frame_id] = rng.range
         try:
             (trans, _) = self.listener.lookupTransform(
                 self.frame_id, rng.header.frame_id, rospy.Time(0))
-            self.tag_pos[rng.header.frame_id] = np.array(trans[:2])
+            self.tag_pos[rng.header.frame_id] = np.array(trans[:3])
         except:
             return
 
         if len(self.tag_pos.values()) == len(self.ranges.values()) \
                 and len(self.tag_pos.keys()) >= 3:
             pos = self.find_position()
-            x, y = pos[0], pos[1]
+            x, y, z = pos[0], pos[1], pos[2]
             self.ps.pose.position.x = x
             self.ps.pose.position.y = y
+            self.ps.pose.position.z = z
             self.ps.header.stamp = rospy.get_rostime()
             self.ps_cov.header.stamp = rospy.get_rostime()
             self.ps_cov.pose.pose = self.ps.pose
             self.ps_pub.publish(self.ps)
             self.ps_cov_pub.publish(self.ps_cov)
 
-    def cov_matrix(self, x_cov, y_cov):
+    def cov_matrix(self, x_cov, y_cov, z_cov):
         return [x_cov, 0, 0, 0, 0, 0,
                 0, y_cov, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0,
+                0, 0, z_cov, 0, 0, 0,
                 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0]
