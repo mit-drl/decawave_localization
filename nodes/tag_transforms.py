@@ -7,9 +7,9 @@ from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
 
 NODE_NAME = "tag_transforms"
-LIDAR_X = 1.54
+LIDAR_X = 0.406
 LIDAR_Y = 0.0
-LIDAR_Z = 1.123
+LIDAR_Z = 1.623
 LIDAR_X_OFFSET = 1.05
 LIDAR_Y_OFFSET = 0.49
 LIDAR_Z_OFFSET = 0.056
@@ -30,14 +30,11 @@ class TagTransform(object):
 
 
 	def make_transforms(self):
-		keys = self.transforms.keys()
-
 		while not rospy.is_shutdown():
 			x = LIDAR_X - LIDAR_X_OFFSET
 			y = LIDAR_Y + LIDAR_Y_OFFSET
 			z = LIDAR_Z - LIDAR_Z_OFFSET
-			for i, key in enumerate(keys):
-				tag = self.transforms[key]
+			for i, tag in enumerate(self.transforms):
 				x = x + tag['x']
 				y = y + tag['y']
 				z = z + tag['z']

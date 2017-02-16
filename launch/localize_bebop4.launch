@@ -8,13 +8,14 @@
     <arg name="cov_z" default="0.6"/>
 
     <rosparam param="tag_names">
-        ["tag_left_back", "tag_left_front", "tag_right_front", "tag_right_center"]
+        ["tag_left_back", "tag_left_front", "tag_right_front", "tag_right_center",
+        "tag_right_bumper", "tag_left_bumper"]
     </rosparam>
 
     <rosparam command="load" file="$(find decawave_localization)/config/real_car.yaml" />
 
     <rosparam param="offsets">
-        ["-0.169", "-0.106", "0.0", "-0.134"]
+        ["-0.169", "-0.106", "0.0", "-0.134", "0.0", "0.0"]
     </rosparam>
 
     <!-- Reading from tag sensors -->
@@ -47,6 +48,20 @@
         <param name="frequency" value="100"/>
     </node>
 
+    <node name="reader5" type="tag.py" pkg="decawave_localization"
+        output="screen">
+        <param name="port" value="/dev/ttyACM5"/>
+        <param name="baud" value="115200"/>
+        <param name="frequency" value="100"/>
+    </node>
+
+    <node name="reader6" type="tag.py" pkg="decawave_localization"
+        output="screen">
+        <param name="port" value="/dev/ttyACM6"/>
+        <param name="baud" value="115200"/>
+        <param name="frequency" value="100"/>
+    </node>
+
     <node name="filter_left_front" type="kalman.py" pkg="decawave_localization" output="screen">
         <param name="tag_range_topic" value="tag_left_front/range" />
     </node>
@@ -61,6 +76,14 @@
 
     <node name="filter_left_center" type="kalman.py" pkg="decawave_localization" output="screen">
         <param name="tag_range_topic" value="tag_right_front/range" />
+    </node>
+
+    <node name="filter_right_bumper" type="kalman.py" pkg="decawave_localization" output="screen">
+        <param name="tag_range_topic" value="tag_right_bumper/range" />
+    </node>
+
+    <node name="filter_left_bumper" type="kalman.py" pkg="decawave_localization" output="screen">
+        <param name="tag_range_topic" value="tag_left_bumper/range" />
     </node>
 
     <!-- Static transforms from the car frame to the tags -->
@@ -84,6 +107,8 @@
                 - tag_left_back/range_filtered
                 - tag_right_center/range_filtered
                 - tag_right_front/range_filtered
+                - tag_right_bumper/range_filtered
+                - tag_left_bumper/range_filtered
             transition_matrix: [1, 0, 0, 1]
             observation_matrix: [1, 0, 0, 1]
             initial_state: [0, 0]
