@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
 
-    <arg name="car_frame_id" default="white_prius/base_link"/>
+    <arg name="car_frame_id" default="body"/>
     <arg name="pose_cov_topic" default="/uwb_pose_cov"/>
     <arg name="cov_x_2d" default="0.6"/>
     <arg name="cov_y_2d" default="0.6"/>
@@ -9,8 +9,9 @@
     <arg name="cov_x_3d" default="0.6"/>
     <arg name="cov_y_3d" default="0.6"/>
     <arg name="cov_z_3d" default="0.6"/>
+    <arg name="sensor_noise" default="0.000370"/>
 
-
+    <param name="sensor_noise" value="$(arg sensor_noise)"/>
     <rosparam param="tag_names">
         ["tag_left_back", "tag_left_front", "tag_right_front", "tag_right_center",
         "tag_right_bumper", "tag_left_bumper"]

@@ -13,7 +13,7 @@ class Kalman(object):
 		self.p = 0 # error prediction
 		self.q = 0.0001 # process noise
 		self.k = 0 # kalman gain
-		self.r = 0.000370 # sensor noise
+		self.r = rospy.get_param("sensor_noise") # sensor noise
 
 		self.tag_range_topic = rospy.get_param("~tag_range_topic")
 		self.tag_range_filtered_topic = self.tag_range_topic + "_filtered"

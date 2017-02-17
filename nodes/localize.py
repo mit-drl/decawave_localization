@@ -30,8 +30,10 @@ class DecaWaveLocalization:
         self.two_d_tags = rospy.get_param("~two_d_tags")
         self.cov_2d = self.cov_matrix(cov_x_2d, cov_y_2d, cov_z_2d)
         self.cov_3d = self.cov_matrix(cov_x_3d, cov_y_3d, cov_z_3d)
-        self.ps_pub_3d = rospy.Publisher(POSE_TOPIC_3D, PoseStamped, queue_size=1)
-        self.ps_pub_2d = rospy.Publisher(POSE_TOPIC_2D, PoseStamped, queue_size=1)
+        self.ps_pub_3d = rospy.Publisher(POSE_TOPIC_3D, PoseStamped,
+                                         queue_size=1)
+        self.ps_pub_2d = rospy.Publisher(POSE_TOPIC_2D, PoseStamped,
+                                         queue_size=1)
         self.ps_cov_pub_3d = rospy.Publisher(
             POSE_COV_TOPIC_3D, PoseWithCovarianceStamped, queue_size=1)
         self.ps_cov_pub_2d = rospy.Publisher(
@@ -50,14 +52,16 @@ class DecaWaveLocalization:
     def find_position_3d(self):
         if self.last_3d is None:
             self.last_3d = self.tag_pos.values()[0]
-        res = opt.minimize(self.error, self.last_3d, jac=self.jac, method="SLSQP")
+        res = opt.minimize(self.error, self.last_3d,
+                           jac=self.jac, method="SLSQP")
         self.last_3d = res.x
         return res.x
 
     def find_position_2d(self):
         if self.last_2d is None:
             self.last_2d = self.tag_pos.values()[0][:2]
-        res = opt.minimize(self.error_2d, self.last_2d, jac=self.jac_2d, method="SLSQP")
+        res = opt.minimize(self.error_2d, self.last_2d,
+                           jac=self.jac_2d, method="SLSQP")
         self.last_2d = res.x
         return res.x
 
@@ -110,7 +114,7 @@ class DecaWaveLocalization:
         except:
             return
 
-        if len(self.ranges.values()) == 6:
+        if len(self.ranges.values()) == 6 and len(self.tag_pos.values()) == 6:
             pos_3d = self.find_position_3d()
             pos_2d = self.find_position_2d()
             self.publish_position(
