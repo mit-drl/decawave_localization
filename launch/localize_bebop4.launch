@@ -3,9 +3,13 @@
 
     <arg name="car_frame_id" default="white_prius/base_link"/>
     <arg name="pose_cov_topic" default="/uwb_pose_cov"/>
-    <arg name="cov_x" default="0.6"/>
-    <arg name="cov_y" default="0.6"/>
-    <arg name="cov_z" default="0.6"/>
+    <arg name="cov_x_2d" default="0.6"/>
+    <arg name="cov_y_2d" default="0.6"/>
+    <arg name="cov_z_2d" default="0.6"/>
+    <arg name="cov_x_3d" default="0.6"/>
+    <arg name="cov_y_3d" default="0.6"/>
+    <arg name="cov_z_3d" default="0.6"/>
+
 
     <rosparam param="tag_names">
         ["tag_left_back", "tag_left_front", "tag_right_front", "tag_right_center",
@@ -97,10 +101,14 @@
         name="decawave_localization" output="screen">
         <param name="frame_id" value="$(arg car_frame_id)"/>
         <param name="frequency" value="30"/>
-        <param name="cov_x" value="$(arg cov_x)"/>
-        <param name="cov_y" value="$(arg cov_y)"/>
-        <param name="cov_z" value="$(arg cov_z)"/>
-        <remap from="pose_cov" to="$(arg pose_cov_topic)"/>
+        <param name="cov_x_2d" value="$(arg cov_x_2d)"/>
+        <param name="cov_y_2d" value="$(arg cov_y_2d)"/>
+        <param name="cov_z_2d" value="$(arg cov_z_2d)"/>
+        <param name="cov_x_3d" value="$(arg cov_x_3d)"/>
+        <param name="cov_y_3d" value="$(arg cov_y_3d)"/>
+        <param name="cov_z_3d" value="$(arg cov_z_3d)"/>
+        <remap from="pose_cov_3d" to="$(arg pose_cov_topic)_3d"/>
+        <remap from="pose_cov_2d" to="$(arg pose_cov_topic)_2d"/>
         <rosparam>
             tag_range_topics:
                 - tag_left_front/range_filtered
@@ -109,10 +117,11 @@
                 - tag_right_front/range_filtered
                 - tag_right_bumper/range_filtered
                 - tag_left_bumper/range_filtered
-            transition_matrix: [1, 0, 0, 1]
-            observation_matrix: [1, 0, 0, 1]
-            initial_state: [0, 0]
-            initial_cov: [0.1, 0, 0, 0.1]
+            two_d_tags:
+                - tag_left_back
+                - tag_left_front
+                - tag_right_front
+                - tag_right_center
         </rosparam>
     </node>
 </launch>
