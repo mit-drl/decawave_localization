@@ -40,7 +40,7 @@ class DecaWaveLocalization:
             POSE_COV_TOPIC_3D, PoseWithCovarianceStamped, queue_size=1)
         self.ps_cov_pub_2d = rospy.Publisher(
             POSE_COV_TOPIC_2D, PoseWithCovarianceStamped, queue_size=1)
-        self.odom_sub = rospy.Publisher(
+        self.odom_sub = rospy.Subscriber(
             ODOMETRY_TOPIC, Odometry, self.odom_callback)
         self.rate = rospy.Rate(rospy.get_param("~frequency", 30))
         self.last_3d = None
@@ -54,8 +54,8 @@ class DecaWaveLocalization:
             self.subs.append(rospy.Subscriber(topic, Range, self.range_cb))
 
     def odom_callback(self, odom):
-        x = self.odom.pose.pose.position.x
-        y = self.odom.pose.pose.position.y
+        x = odom.pose.pose.position.x
+        y = odom.pose.pose.position.y
         self.last_2d = np.array([x, y])
 
     def find_position_3d(self):
