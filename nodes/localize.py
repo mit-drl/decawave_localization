@@ -5,6 +5,7 @@ import tf
 import numpy as np
 import rospy
 import scipy.optimize as opt
+from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from sensor_msgs.msg import Range
@@ -15,6 +16,7 @@ POSE_TOPIC_2D = "uwb_pose_2d"
 POSE_COV_TOPIC_3D = "pose_cov_3d"
 POSE_COV_TOPIC_2D = "pose_cov_2d"
 ERROR_PC_TOPIC = "error_cloud"
+ODOMETRY_TOPIC = "/odometry/filtered"
 
 
 class DecaWaveLocalization:
@@ -30,14 +32,16 @@ class DecaWaveLocalization:
         self.two_d_tags = rospy.get_param("~two_d_tags")
         self.cov_2d = self.cov_matrix(cov_x_2d, cov_y_2d, cov_z_2d)
         self.cov_3d = self.cov_matrix(cov_x_3d, cov_y_3d, cov_z_3d)
-        self.ps_pub_3d = rospy.Publisher(POSE_TOPIC_3D, PoseStamped,
-                                         queue_size=1)
-        self.ps_pub_2d = rospy.Publisher(POSE_TOPIC_2D, PoseStamped,
-                                         queue_size=1)
+        self.ps_pub_3d = rospy.Publisher(
+            POSE_TOPIC_3D, PoseStamped, queue_size=1)
+        self.ps_pub_2d = rospy.Publisher(
+            POSE_TOPIC_2D, PoseStamped, queue_size=1)
         self.ps_cov_pub_3d = rospy.Publisher(
             POSE_COV_TOPIC_3D, PoseWithCovarianceStamped, queue_size=1)
         self.ps_cov_pub_2d = rospy.Publisher(
             POSE_COV_TOPIC_2D, PoseWithCovarianceStamped, queue_size=1)
+        self.odom_sub = rospy.Publisher(
+            ODOMETRY_TOPIC, Odometry, self.odom_callback)
         self.rate = rospy.Rate(rospy.get_param("~frequency", 30))
         self.last_3d = None
         self.last_2d = None
@@ -48,6 +52,11 @@ class DecaWaveLocalization:
         self.tag_pos = dict()
         for topic in self.tag_range_topics:
             self.subs.append(rospy.Subscriber(topic, Range, self.range_cb))
+
+    def odom_callback(self, odom):
+        x = self.odom.pose.pose.position.x
+        y = self.odom.pose.pose.position.y
+        self.last_2d = np.array([x, y])
 
     def find_position_3d(self):
         if self.last_3d is None:
@@ -62,7 +71,7 @@ class DecaWaveLocalization:
             self.last_2d = self.tag_pos.values()[0][:2]
         res = opt.minimize(self.error_2d, self.last_2d,
                            jac=self.jac_2d, method="SLSQP")
-        self.last_2d = res.x
+        # self.last_2d = res.x
         return res.x
 
     def error(self, x):
