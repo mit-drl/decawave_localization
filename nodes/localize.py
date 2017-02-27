@@ -3,6 +3,7 @@
 from __future__ import division
 import tf
 import numpy as np
+import math
 import rospy
 import scipy.optimize as opt
 from nav_msgs.msg import Odometry
@@ -50,27 +51,41 @@ class DecaWaveLocalization:
         self.subs = list()
         self.ranges = dict()
         self.tag_pos = dict()
+        self.altitude = 0.0
         for topic in self.tag_range_topics:
             self.subs.append(rospy.Subscriber(topic, Range, self.range_cb))
 
     def odom_callback(self, odom):
         x = odom.pose.pose.position.x
         y = odom.pose.pose.position.y
+        z = odom.pose.pose.position.z
+        self.altitude = z
         self.last_2d = np.array([x, y])
+        self.last_3d = np.array([x, y, z])
+
+    def transform_to_plane(self, tag_id):
+        h = self.tag_pos[tag_id][2]
+        r = self.ranges[tag_id]
+        return math.sqrt(r ** 2 - (h - self.altitude) ** 2)
 
     def find_position_3d(self):
         if self.last_3d is None:
             self.last_3d = self.tag_pos.values()[0]
         res = opt.minimize(self.error, self.last_3d,
                            jac=self.jac, method="SLSQP")
-        self.last_3d = res.x
+        # self.last_3d = res.x
         return res.x
 
     def find_position_2d(self):
         if self.last_2d is None:
             self.last_2d = self.tag_pos.values()[0][:2]
+        tags = list()
+        dists = list()
+        for tag_id in self.ranges.keys():
+            tags.append(self.tag_pos[tag_id])
+            dists.append(self.transform_to_plane(tag_id))
         res = opt.minimize(self.error_2d, self.last_2d,
-                           jac=self.jac_2d, method="SLSQP")
+                           jac=self.jac_2d, args=(tags, dists), method="SLSQP")
         # self.last_2d = res.x
         return res.x
 
@@ -82,12 +97,10 @@ class DecaWaveLocalization:
             err += pow(pow(dist, 2) - pow(np.linalg.norm(x - tag), 2), 2)
         return err
 
-    def error_2d(self, x):
+    def error_2d(self, x, tags, dists):
         err = 0.0
-        for tag_id in self.two_d_tags:
-            tag = self.tag_pos[tag_id][:2]
-            dist = self.ranges[tag_id]
-            err += pow(pow(dist, 2) - pow(np.linalg.norm(x - tag), 2), 2)
+        for tag, dist in zip(tags, dists):
+            err += pow(pow(dist, 2) - pow(np.linalg.norm(x - tag[:2]), 2), 2)
         return err
 
     def jac(self, x):
@@ -103,13 +116,11 @@ class DecaWaveLocalization:
             jac_z += err * (tag[2] - x[2])
         return np.array([jac_x, jac_y, jac_z])
 
-    def jac_2d(self, x):
+    def jac_2d(self, x, tags, dists):
         jac_x = 0.0
         jac_y = 0.0
-        for tag_id in self.two_d_tags:
-            tag = self.tag_pos[tag_id][:2]
-            dist = self.ranges[tag_id]
-            err = pow(dist, 2) - pow(np.linalg.norm(x - tag), 2)
+        for tag, dist in zip(tags, dists):
+            err = pow(dist, 2) - pow(np.linalg.norm(x - tag[:2]), 2)
             jac_x += err * (tag[0] - x[0])
             jac_y += err * (tag[1] - x[1])
         return np.array([jac_x, jac_y])
