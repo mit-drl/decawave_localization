@@ -66,7 +66,11 @@ class DecaWaveLocalization:
     def transform_to_plane(self, tag_id):
         h = self.tag_pos[tag_id][2]
         r = self.ranges[tag_id]
-        return math.sqrt(r ** 2 - (h - self.altitude) ** 2)
+        dalt = abs(h - self.altitude)
+        if dalt < r:
+            return math.sqrt(r ** 2 - dalt ** 2)
+        else:
+            return r
 
     def find_position_3d(self):
         if self.last_3d is None:
@@ -135,10 +139,10 @@ class DecaWaveLocalization:
             return
 
         if len(self.ranges.values()) == 6 and len(self.tag_pos.values()) == 6:
-            pos_3d = self.find_position_3d()
+            # pos_3d = self.find_position_3d()
             pos_2d = self.find_position_2d()
-            self.publish_position(
-                pos_3d, self.ps_pub_3d, self.ps_cov_pub_3d, self.cov_3d)
+            # self.publish_position(
+            #     pos_3d, self.ps_pub_3d, self.ps_cov_pub_3d, self.cov_3d)
             self.publish_position(
                 pos_2d, self.ps_pub_2d, self.ps_cov_pub_2d, self.cov_2d)
             self.ranges = dict()
