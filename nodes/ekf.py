@@ -111,8 +111,8 @@ class EKF(object):
 
     def predict(self, dt):
         self.F = self.transition_matrix(dt)
-        self.x = self.F*self.x
-        self.P = self.F*self.P*self.F.T + self.Q
+        self.x = np.dot(self.F,self.x)
+        self.P = np.dot(self.F,np.dot(self.P,np.dot(self.F.T))) + self.Q
 
     def update(self, z):
         x = self.x
@@ -131,10 +131,10 @@ class EKF(object):
 
         y = z - h
         H = 2*(x-self.uwb_state)
-        S = H*P*H.T + R
-        K = P*H.T*np.linalg.inv(S)
-        x = x + K*y
-        P = (np.eye(num_states) - K*H)*P
+        S = np.dot(H,np.dot(P,H.T)) + R
+        K = np.dot(P,np.dot(H.T,np.dot(np.linalg.inv(S))))
+        x = x + np.dot(K,y)
+        P = np.dot(np.eye(num_states) - np.dot(K,H),P)
         self.x = x
         self.P = P
 
