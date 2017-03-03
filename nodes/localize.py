@@ -76,13 +76,13 @@ class DecaWaveLocalization(object):
     def find_xyz(self):
         if self.last is None:
             self.last = self.tag_pos.values()[0][:2]
-        kwargs = {"bounds": (self.altitude - 1, self.altitude + 1),
-                  "method": "bounded"}
-        res = opt.minimize_scalar(self.error_altitude, **kwargs)
-        z = res.x
+        # kwargs = {"bounds": (self.altitude - 1, self.altitude + 1),
+        #           "method": "bounded"}
+        # res = opt.minimize_scalar(self.error_altitude, **kwargs)
+        # z = res.x
         # print z
         xy = self.error_altitude(self.altitude, return_args=True)
-        return [xy[0], xy[1], z]
+        return [xy[0], xy[1], self.altitude]
 
     def error_altitude(self, alt, return_args=False):
         tags = list()
