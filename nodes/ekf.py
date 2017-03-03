@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
 import roshelper
+import numpy as np
 import math
 import rospy
 import tf
 import time
+from sensor_msgs.msg import Range
 from std_msgs.msg import Empty
 from std_msgs.msg import Float64
 from std_msgs.msg import Empty
@@ -34,7 +36,7 @@ class EKF(object):
 
         self.tag_range_topics = rospy.get_param("~tag_range_topics")
         self.subs = list()
-        self.ranges = OrderedDict()
+        self.ranges = dict()
         self.tag_pos = dict()
         self.tag_order = []
         for topic in self.tag_range_topics:
@@ -46,12 +48,12 @@ class EKF(object):
 
         self.F = np.eye(num_states)
         self.P = np.eye(num_states)
-        self.x = np.zeros(num_states)
+        self.x = np.zeros((num_states,))
 
         self.uwb_state = np.zeros((len(self.tag_range_topics),num_states))
         self.H = np.zeros((num_states, len(self.tag_range_topics)))
         self.Q = np.diag([0.1, 0.1, 0.1, 0, 0, 0])
-        self.R = np.diag([0.1, 0.1, 0.1, 0.1, 0.1])
+        self.R = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 
 
     def range_cb(self, rng):
@@ -87,7 +89,7 @@ class EKF(object):
             dt = rospy.Time.now().secs - self.last_time
             self.predict(dt)
             self.update(z)
-            self.last_time = rospy.Time.now()
+            self.last_time = rospy.Time.now().secs
 
             new_pose.header.stamp = rospy.get_rostime()
             new_pose.header.frame_id = self.frame_id
@@ -121,14 +123,14 @@ class EKF(object):
 
         # I expect z to be a numpy array
         z = np.power(z, 2)
-        h = np.zeros(num_states)
+        h = np.zeros((num_states,))
 
-        for row in range(0,x.size[1]):
-            diff = x(row,:) - self.uwb_state(row,:)
+        for row in range(0, x.shape[0]):
+            diff = x[row,:] - self.uwb_state[row,:]
             h[row] = np.inner(diff, diff)
 
         y = z - h
-        H = 2*(x-r)
+        H = 2*(x-self.uwb_state)
         S = H*P*H.T + R
         K = P*H.T*np.linalg.inv(S)
         x = x + K*y
