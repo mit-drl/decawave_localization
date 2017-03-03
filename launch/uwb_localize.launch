@@ -126,32 +126,32 @@
         </rosparam>
     </node>
 
-    <!-- <node pkg="decawave_localization" type="ekf.py" -->
-    <!--     name="decawave_ekf" output="screen"> -->
-    <!--     <param name="frame_id" value="$(arg car_frame_id)"/> -->
-    <!--     <param name="frequency" value="30"/> -->
-    <!--     <param name="cov_x_2d" value="$(arg cov_x_2d)"/> -->
-    <!--     <param name="cov_y_2d" value="$(arg cov_y_2d)"/> -->
-    <!--     <param name="cov_z_2d" value="$(arg cov_z_2d)"/> -->
-    <!--     <param name="cov_x_3d" value="$(arg cov_x_3d)"/> -->
-    <!--     <param name="cov_y_3d" value="$(arg cov_y_3d)"/> -->
-    <!--     <param name="cov_z_3d" value="$(arg cov_z_3d)"/> -->
-    <!--     <remap from="pose_cov_3d" to="$(arg pose_cov_topic)_3d"/> -->
-    <!--     <remap from="pose_cov_2d" to="$(arg pose_cov_topic)_2d"/> -->
-    <!--     <rosparam> -->
-    <!--         tag_range_topics: -->
-    <!--             &#45; tag_left_front/range_filtered -->
-    <!--             &#45; tag_left_back/range_filtered -->
-    <!--             &#45; tag_right_center/range_filtered -->
-    <!--             &#45; tag_right_front/range_filtered -->
-    <!--             &#45; tag_right_bumper/range_filtered -->
-    <!--             &#45; tag_left_bumper/range_filtered -->
-    <!--         two_d_tags: -->
-    <!--             &#45; tag_left_back -->
-    <!--             &#45; tag_left_front -->
-    <!--             &#45; tag_right_front -->
-    <!--             &#45; tag_right_center -->
-    <!--     </rosparam> -->
-    <!-- </node> -->
+    <node pkg="decawave_localization" type="ekf.py"
+        name="decawave_ekf" output="screen">
+        <param name="frame_id" value="$(arg car_frame_id)"/>
+        <param name="frequency" value="30"/>
+        <param name="cov_x_2d" value="$(arg cov_x_2d)"/>
+        <param name="cov_y_2d" value="$(arg cov_y_2d)"/>
+        <param name="cov_z_2d" value="$(arg cov_z_2d)"/>
+        <param name="cov_x_3d" value="$(arg cov_x_3d)"/>
+        <param name="cov_y_3d" value="$(arg cov_y_3d)"/>
+        <param name="cov_z_3d" value="$(arg cov_z_3d)"/>
+        <remap from="pose_cov_3d" to="$(arg pose_cov_topic)_3d"/>
+        <remap from="pose_cov_2d" to="$(arg pose_cov_topic)_2d"/>
+        <rosparam>
+            tag_range_topics:
+                - tag_left_front/range_filtered
+                - tag_left_back/range_filtered
+                - tag_right_center/range_filtered
+                - tag_right_front/range_filtered
+                - tag_right_bumper/range_filtered
+                - tag_left_bumper/range_filtered
+            two_d_tags:
+                - tag_left_back
+                - tag_left_front
+                - tag_right_front
+                - tag_right_center
+        </rosparam>
+    </node>
 
 </launch>
