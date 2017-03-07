@@ -25,6 +25,7 @@ n = roshelper.Node(NODE_NAME, anonymous=False)
 
 EKF_TOPIC = "ekf_pose"
 EKF_COV_TOPIC = "ekf_pose_cov"
+VEL_TOPIC = "bebop/odom_cov"
 
 num_states = 6 # x, y, z, vx, vy, vz
 
@@ -37,6 +38,7 @@ class EKF(object):
         self.tag_range_topics = rospy.get_param("~tag_range_topics")
         self.subs = list()
         self.ranges = dict()
+        self.vel_data = []
         self.tag_pos = dict()
         self.tag_order = []
         for topic in self.tag_range_topics:
@@ -69,13 +71,16 @@ class EKF(object):
             except:
                 return
 
-        if len(self.ranges.values()) == 6:
-            self.ekf_pub(self.ranges)
-            self.ranges = dict()
-
+    @n.subscriber(VEL_TOPIC, Odometry)
+    def odom_sub(self, odom):
+        twist = odom.twist.twist.linear
+        self.vel_data = []
+        self.vel_data.append(twist.x)
+        self.vel_data.append(twist.y)
+        self.vel_data.append(twist.z)
 
     @n.publisher(EKF_TOPIC, PoseStamped)
-    def ekf_pub(self, ranges):
+    def ekf_pub(self, ranges, vel_data):
         z = np.array([])
         new_pose = PoseStamped()
         ps_cov = PoseWithCovarianceStamped()
@@ -145,6 +150,14 @@ class EKF(object):
                             [0, 0, 0, 1, 0, 0],
                             [0, 0, 0, 0, 1, 0],
                             [0, 0, 0, 0, 0, 1]])
+
+    @n.main_loop(frequency=30)
+    def run(self):
+        if len(self.ranges.values()) == 6 and len(self.vel_data) == 3:
+            self.ekf_pub(self.ranges, self.vel_data)
+            self.ranges = dict()
+            self.vel_data = []
+
 
 if __name__ == "__main__":
     n.start(spin=True)
