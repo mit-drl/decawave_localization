@@ -41,9 +41,6 @@ class EKF(object):
         self.vel_data = []
         self.tag_pos = dict()
         self.tag_order = []
-        for topic in self.tag_range_topics:
-            self.subs.append(rospy.Subscriber(topic, Range, self.range_cb))
-
 
         self.listener = tf.TransformListener()
         self.last_time = None
@@ -57,6 +54,8 @@ class EKF(object):
         self.Q = np.diag([0.1, 0.1, 0.1, 0, 0, 0])
         self.R = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 
+        for topic in self.tag_range_topics:
+            self.subs.append(rospy.Subscriber(topic, Range, self.range_cb))
 
     def range_cb(self, rng):
         self.ranges[rng.header.frame_id] = rng.range
@@ -67,8 +66,9 @@ class EKF(object):
                 (trans, _) = self.listener.lookupTransform(
                     self.frame_id, rng.header.frame_id, rospy.Time(0))
                 self.tag_pos[rng.header.frame_id] = np.array(trans[:3])
-                self.uwb_state[len(tag_order)-1, :] = np.array([trans[0], trans[1], trans[2], 0, 0, 0])
-            except:
+                self.uwb_state[len(self.tag_order)-1, :] = \
+                    np.array([trans[0], trans[1], trans[2], 0, 0, 0])
+            except tf.Exception:
                 return
 
     @n.subscriber(VEL_TOPIC, Odometry)
@@ -89,12 +89,12 @@ class EKF(object):
             z = np.append(z, measurement)
 
         if self.last_time is None:
-            self.last_time = rospy.Time.now().secs
+            self.last_time = rospy.Time.now().to_sec()
         else:
-            dt = rospy.Time.now().secs - self.last_time
+            dt = rospy.Time.now().to_sec() - self.last_time
             self.predict(dt)
             self.update(z)
-            self.last_time = rospy.Time.now().secs
+            self.last_time = rospy.Time.now().to_sec()
 
             new_pose.header.stamp = rospy.get_rostime()
             new_pose.header.frame_id = self.frame_id
@@ -117,7 +117,7 @@ class EKF(object):
     def predict(self, dt):
         self.F = self.transition_matrix(dt)
         self.x = np.dot(self.F,self.x)
-        self.P = np.dot(self.F,np.dot(self.P,np.dot(self.F.T))) + self.Q
+        self.P = np.dot(self.F,np.dot(self.P, self.F.T)) + self.Q
 
     def update(self, z):
         x = self.x
@@ -131,13 +131,13 @@ class EKF(object):
         h = np.zeros((num_states,))
 
         for row in range(0, x.shape[0]):
-            diff = x[row,:] - self.uwb_state[row,:]
+            diff = x - self.uwb_state[row,:]
             h[row] = np.inner(diff, diff)
 
         y = z - h
         H = 2*(x-self.uwb_state)
         S = np.dot(H,np.dot(P,H.T)) + R
-        K = np.dot(P,np.dot(H.T,np.dot(np.linalg.inv(S))))
+        K = np.dot(P,np.dot(H.T, np.linalg.inv(S)))
         x = x + np.dot(K,y)
         P = np.dot(np.eye(num_states) - np.dot(K,H),P)
         self.x = x
