@@ -6,6 +6,7 @@ import math
 import rospy
 import tf
 import time
+from bebop_msgs.msg import Ardrone3PilotingStateAltitudeChanged
 from sensor_msgs.msg import Range
 from std_msgs.msg import Empty
 from std_msgs.msg import Float64
@@ -46,6 +47,9 @@ class EKF(object):
 
         self.listener = tf.TransformListener()
         self.last_time = None
+        self.yaw_zero = None
+
+        self.altitude = None
 
         self.F = np.eye(num_states)
         self.P = 0.1*np.random.rand(num_states, num_states)
@@ -55,7 +59,11 @@ class EKF(object):
         self.uwb_state = np.zeros((len(self.tag_range_topics),num_states))
         self.H = np.zeros((num_states, len(self.tag_range_topics)))
         self.Q = np.diag([0.1, 0.1, 0.1, 0.07, 0.07, 0.07])
-        self.R = np.diag([0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.3, 0.3, 0.3])
+        uwb_cov = 0.6
+        vel_cov = 0.6
+        alt_cov = 0.1
+        self.R = np.diag([uwb_cov, uwb_cov, uwb_cov, uwb_cov, uwb_cov, uwb_cov,
+                             vel_cov, vel_cov, vel_cov, alt_cov])
 
         for topic in self.tag_range_topics:
             self.subs.append(rospy.Subscriber(topic, Range, self.range_cb))
@@ -78,7 +86,12 @@ class EKF(object):
     def odom_sub(self, odom):
         ori = odom.pose.pose.orientation
         ori_quat = [ori.x, ori.y, ori.z, ori.w]
-        r, p, self.yaw = euler_from_quaternion(ori_quat)
+        r, p, yaw = euler_from_quaternion(ori_quat)
+
+        if self.yaw_zero is None:
+            self.yaw_zero = yaw
+
+        self.yaw = yaw - self.yaw_zero
 
         twist = odom.twist.twist.linear
         self.vel_data = []
@@ -86,8 +99,15 @@ class EKF(object):
         self.vel_data.append(twist.y)
         self.vel_data.append(twist.z)
 
+    @n.subscriber("/bebop/states/ardrone3/PilotingState/AltitudeChanged",
+                  Ardrone3PilotingStateAltitudeChanged)
+    def altitude_sub(self, alt):
+        cov = [0] * 36
+        cov[17] = 0.05
+        self.altitude = alt.altitude
+
     @n.publisher(EKF_TOPIC, PoseStamped)
-    def ekf_pub(self, ranges, vel_data, yaw):
+    def ekf_pub(self, ranges, vel_data, yaw, alt):
         z = np.array([])
         new_pose = PoseStamped()
         ps_cov = PoseWithCovarianceStamped()
@@ -100,7 +120,7 @@ class EKF(object):
         else:
             dt = rospy.Time.now().to_sec() - self.last_time
             self.predict(dt)
-            self.update(z, vel_data, yaw)
+            self.update(z, vel_data, yaw, alt)
             self.last_time = rospy.Time.now().to_sec()
 
             new_pose.header.stamp = rospy.get_rostime()
@@ -139,11 +159,7 @@ class EKF(object):
 
         return h
 
-    def h_vel(self, x):
-        return x[3:6]
-
-
-    def update(self, uwb_z, vel_z, yaw):
+    def update(self, uwb_z, vel_z, yaw, alt_z):
         x = self.x
         F = self.F
         H = self.H
@@ -155,11 +171,14 @@ class EKF(object):
         # distance squared
         uwb_z = np.power(uwb_z, 2)
         z = np.append(uwb_z,vel_z)
+        z = np.append(z,alt_z)
 
         h_uwb = self.h_uwb(x, uwb_z)
-        h_vel = self.h_vel(x)
+        h_vel = x[3:6]
+        h_alt = x[2]
 
         h = np.append(h_uwb, h_vel)
+        h = np.append(h, h_alt)
 
         y = z - h
 
@@ -168,9 +187,12 @@ class EKF(object):
             add_vel = [0, 0, 0, 0, 0, 0]
             add_vel[vel_idx + 3] = 1
             H = np.vstack([H, add_vel])
+        # this row is for altitude
+        H = np.vstack([H, [0, 0, 1, 0, 0, 0]])
 
         S = np.dot(H,np.dot(P,H.T)) + R
         K = np.dot(P,np.dot(H.T, np.linalg.inv(S)))
+
         x = x + np.dot(K,y)
         P = np.dot(np.eye(num_states) - np.dot(K,H),P)
         self.x = x
@@ -186,10 +208,11 @@ class EKF(object):
 
     @n.main_loop(frequency=50)
     def run(self):
-        if len(self.ranges.values()) == 6 and len(self.vel_data) == 3:
-            self.ekf_pub(self.ranges, self.vel_data, self.yaw)
+        if len(self.ranges.values()) == 6 and len(self.vel_data) == 3 and self.altitude is not None:
+            self.ekf_pub(self.ranges, self.vel_data, self.yaw, self.altitude)
             self.ranges = dict()
             self.vel_data = []
+            self.altitude = None
 
 
 if __name__ == "__main__":
