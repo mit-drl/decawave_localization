@@ -19,6 +19,8 @@ from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import Quaternion
 from std_msgs.msg import Float64MultiArray
+from tf.transformations import euler_from_quaternion
+from tf.transformations import quaternion_from_euler
 
 NODE_NAME = "ekf"
 n = roshelper.Node(NODE_NAME, anonymous=False)
@@ -46,13 +48,14 @@ class EKF(object):
         self.last_time = None
 
         self.F = np.eye(num_states)
-        self.P = np.eye(num_states)
+        self.P = 0.1*np.random.rand(num_states, num_states)
+        #self.P = np.eye(num_states)
         self.x = np.zeros((num_states,))
 
         self.uwb_state = np.zeros((len(self.tag_range_topics),num_states))
         self.H = np.zeros((num_states, len(self.tag_range_topics)))
-        self.Q = np.diag([0.1, 0.1, 0.1, 0, 0, 0])
-        self.R = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+        self.Q = np.diag([0.1, 0.1, 0.1, 0.07, 0.07, 0.07])
+        self.R = np.diag([0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.3, 0.3, 0.3])
 
         for topic in self.tag_range_topics:
             self.subs.append(rospy.Subscriber(topic, Range, self.range_cb))
@@ -73,6 +76,10 @@ class EKF(object):
 
     @n.subscriber(VEL_TOPIC, Odometry)
     def odom_sub(self, odom):
+        ori = odom.pose.pose.orientation
+        ori_quat = [ori.x, ori.y, ori.z, ori.w]
+        r, p, self.yaw = euler_from_quaternion(ori_quat)
+
         twist = odom.twist.twist.linear
         self.vel_data = []
         self.vel_data.append(twist.x)
@@ -80,7 +87,7 @@ class EKF(object):
         self.vel_data.append(twist.z)
 
     @n.publisher(EKF_TOPIC, PoseStamped)
-    def ekf_pub(self, ranges, vel_data):
+    def ekf_pub(self, ranges, vel_data, yaw):
         z = np.array([])
         new_pose = PoseStamped()
         ps_cov = PoseWithCovarianceStamped()
@@ -93,7 +100,7 @@ class EKF(object):
         else:
             dt = rospy.Time.now().to_sec() - self.last_time
             self.predict(dt)
-            self.update(z)
+            self.update(z, vel_data, yaw)
             self.last_time = rospy.Time.now().to_sec()
 
             new_pose.header.stamp = rospy.get_rostime()
@@ -119,23 +126,49 @@ class EKF(object):
         self.x = np.dot(self.F,self.x)
         self.P = np.dot(self.F,np.dot(self.P, self.F.T)) + self.Q
 
-    def update(self, z):
+
+    def h_uwb(self, x, uwb_z):
+        uwb_z = np.power(uwb_z, 2)
+        h = []
+
+        for uwb in range(0, self.uwb_state.shape[0]):
+            # only look at difference between x, y, z
+            # not velocities
+            diff = x[0:3] - self.uwb_state[uwb,0:3]
+            h.append(np.inner(diff, diff))
+
+        return h
+
+    def h_vel(self, x):
+        return x[3:6]
+
+
+    def update(self, uwb_z, vel_z, yaw):
         x = self.x
         F = self.F
         H = self.H
         P = self.P
         R = self.R
 
-        # I expect z to be a numpy array
-        z = np.power(z, 2)
-        h = np.zeros((num_states,))
+        # I expect uwb_z to be a numpy array
+        # square the elements of uwb_z to get
+        # distance squared
+        uwb_z = np.power(uwb_z, 2)
+        z = np.append(uwb_z,vel_z)
 
-        for row in range(0, x.shape[0]):
-            diff = x - self.uwb_state[row,:]
-            h[row] = np.inner(diff, diff)
+        h_uwb = self.h_uwb(x, uwb_z)
+        h_vel = self.h_vel(x)
+
+        h = np.append(h_uwb, h_vel)
 
         y = z - h
+
         H = 2*(x-self.uwb_state)
+        for vel_idx in range(0,len(vel_z)):
+            add_vel = [0, 0, 0, 0, 0, 0]
+            add_vel[vel_idx + 3] = 1
+            H = np.vstack([H, add_vel])
+
         S = np.dot(H,np.dot(P,H.T)) + R
         K = np.dot(P,np.dot(H.T, np.linalg.inv(S)))
         x = x + np.dot(K,y)
@@ -151,10 +184,10 @@ class EKF(object):
                             [0, 0, 0, 0, 1, 0],
                             [0, 0, 0, 0, 0, 1]])
 
-    @n.main_loop(frequency=30)
+    @n.main_loop(frequency=50)
     def run(self):
         if len(self.ranges.values()) == 6 and len(self.vel_data) == 3:
-            self.ekf_pub(self.ranges, self.vel_data)
+            self.ekf_pub(self.ranges, self.vel_data, self.yaw)
             self.ranges = dict()
             self.vel_data = []
 

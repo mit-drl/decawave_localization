@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<launch>
+
+    <arg name="car_frame_id" default="body"/>
+    <arg name="pose_cov_topic" default="/uwb_pose_cov"/>
+    <arg name="cov_x_2d" default="0.6"/>
+    <arg name="cov_y_2d" default="0.6"/>
+    <arg name="cov_z_2d" default="0.6"/>
+    <arg name="cov_x_3d" default="0.6"/>
+    <arg name="cov_y_3d" default="0.6"/>
+    <arg name="cov_z_3d" default="0.6"/>
+    <arg name="sensor_noise" default="0.000370"/>
+
+    <param name="sensor_noise" value="$(arg sensor_noise)"/>
+    <rosparam param="tag_names">
+        ["tag_left_back", "tag_left_front", "tag_right_front", "tag_right_center",
+        "tag_right_bumper", "tag_left_bumper"]
+    </rosparam>
+
+    <rosparam command="load" file="$(find decawave_localization)/config/real_car.yaml" />
+
+    <rosparam param="offsets">
+        ["-0.169", "-0.106", "0.0", "-0.134", "0.0", "0.0"]
+    </rosparam>
+
+    <!-- Static transforms from the car frame to the tags -->
+
+    <node name="tag_transforms" type="tag_transforms.py" pkg="decawave_localization" output="screen">
+        <param name="frame_id" value="$(arg car_frame_id)" />
+    </node>
+
+    <!-- Running the trilateration node -->
+    <node pkg="decawave_localization" type="localize.py"
+        name="decawave_localization" output="screen">
+        <param name="frame_id" value="$(arg car_frame_id)"/>
+        <param name="frequency" value="30"/>
+        <param name="cov_x_2d" value="$(arg cov_x_2d)"/>
+        <param name="cov_y_2d" value="$(arg cov_y_2d)"/>
+        <param name="cov_z_2d" value="$(arg cov_z_2d)"/>
+        <param name="cov_x_3d" value="$(arg cov_x_3d)"/>
+        <param name="cov_y_3d" value="$(arg cov_y_3d)"/>
+        <param name="cov_z_3d" value="$(arg cov_z_3d)"/>
+        <remap from="pose_cov_3d" to="$(arg pose_cov_topic)_3d"/>
+        <remap from="pose_cov_2d" to="$(arg pose_cov_topic)_2d"/>
+        <rosparam>
+            tag_range_topics:
+                - tag_left_front/uwb_range
+                - tag_left_back/uwb_range
+                - tag_right_center/uwb_range
+                - tag_right_front/uwb_range
+                - tag_right_bumper/uwb_range
+                - tag_left_bumper/uwb_range
+            two_d_tags:
+                - tag_left_back
+                - tag_left_front
+                - tag_right_front
+                - tag_right_center
+        </rosparam>
+    </node>
+
+    <node pkg="decawave_localization" type="ekf.py"
+        name="decawave_ekf" output="screen">
+        <param name="frame_id" value="$(arg car_frame_id)"/>
+        <param name="frequency" value="30"/>
+        <param name="cov_x_2d" value="$(arg cov_x_2d)"/>
+        <param name="cov_y_2d" value="$(arg cov_y_2d)"/>
+        <param name="cov_z_2d" value="$(arg cov_z_2d)"/>
+        <param name="cov_x_3d" value="$(arg cov_x_3d)"/>
+        <param name="cov_y_3d" value="$(arg cov_y_3d)"/>
+        <param name="cov_z_3d" value="$(arg cov_z_3d)"/>
+        <remap from="pose_cov_3d" to="$(arg pose_cov_topic)_3d"/>
+        <remap from="pose_cov_2d" to="$(arg pose_cov_topic)_2d"/>
+        <rosparam>
+            tag_range_topics:
+                - tag_left_front/uwb_range
+                - tag_left_back/uwb_range
+                - tag_right_center/uwb_range
+                - tag_right_front/uwb_range
+                - tag_right_bumper/uwb_range
+                - tag_left_bumper/uwb_range
+            two_d_tags:
+                - tag_left_back
+                - tag_left_front
+                - tag_right_front
+                - tag_right_center
+        </rosparam>
+    </node>
+
+</launch>
