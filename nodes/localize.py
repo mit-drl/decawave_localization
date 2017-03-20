@@ -18,6 +18,8 @@ from collections import OrderedDict
 NODE_NAME = "decawave_localization"
 POSE_TOPIC = "uwb_pose_2d"
 POSE_COV_TOPIC = "pose_cov_2d"
+POSE_TOPIC_3D = "uwb_pose_3d"
+POSE_COV_TOPIC_3D = "pose_cov_3d"
 ODOMETRY_TOPIC = "/odometry/filtered"
 ALTITUDE_TOPIC = "/altitude"
 n = roshelper.Node(NODE_NAME, anonymous=False)
@@ -36,6 +38,10 @@ class DecaWaveLocalization(object):
             POSE_TOPIC, PoseStamped, queue_size=1)
         self.ps_cov_pub = rospy.Publisher(
             POSE_COV_TOPIC, PoseWithCovarianceStamped, queue_size=1)
+        self.ps_pub_3d = rospy.Publisher(
+            POSE_TOPIC_3D, PoseStamped, queue_size=1)
+        self.ps_cov_pub_3d = rospy.Publisher(
+            POSE_COV_TOPIC_3D, PoseWithCovarianceStamped, queue_size=1)
         self.last = None
         self.listener = tf.TransformListener()
         self.tag_range_topics = rospy.get_param("~tag_range_topics")
@@ -43,6 +49,7 @@ class DecaWaveLocalization(object):
         self.ranges = dict()
         self.tag_pos = dict()
         self.altitude = 0.0
+        self.last_3d = None
         for topic in self.tag_range_topics:
             self.subs.append(rospy.Subscriber(topic, Range, self.range_cb))
 
@@ -76,13 +83,38 @@ class DecaWaveLocalization(object):
     def find_xyz(self):
         if self.last is None:
             self.last = self.tag_pos.values()[0][:2]
-        # kwargs = {"bounds": (self.altitude - 1, self.altitude + 1),
-        #           "method": "bounded"}
-        # res = opt.minimize_scalar(self.error_altitude, **kwargs)
-        # z = res.x
-        # print z
         xy = self.error_altitude(self.altitude, return_args=True)
         return [xy[0], xy[1], self.altitude]
+
+    def find_position_3d(self):
+        if self.last_3d is None:
+            self.last_3d = self.tag_pos.values()[0]
+        tags, dists = [], []
+        for tag_id in self.tag_pos.keys():
+            tags.append(self.tag_pos[tag_id])
+            dists.append(self.ranges[tag_id])
+        res = opt.minimize(self.error_3d, self.last_3d,
+                           jac=self.jac_3d, method="SLSQP",
+                           args=(tags, dists))
+        self.last_3d = res.x
+        return res.x
+
+    def error_3d(self, x, tags, dists):
+        err = 0.0
+        for tag, dist in zip(tags, dists):
+            err += pow(pow(dist, 2) - pow(np.linalg.norm(x - tag), 2), 2)
+        return err
+
+    def jac_3d(self, x, tags, dists):
+        jac_x = 0.0
+        jac_y = 0.0
+        jac_z = 0.0
+        for tag, dist in zip(tags, dists):
+            err = pow(dist, 2) - pow(np.linalg.norm(x - tag), 2)
+            jac_x += err * (tag[0] - x[0])
+            jac_y += err * (tag[1] - x[1])
+            jac_z += err * (tag[2] - x[2])
+        return np.array([jac_x, jac_y, jac_z])
 
     def error_altitude(self, alt, return_args=False):
         tags = list()
@@ -125,9 +157,12 @@ class DecaWaveLocalization(object):
 
         if len(self.ranges.values()) == 6 and len(self.tag_pos.values()) == 6:
             pos = self.find_xyz()
+            pos_3d = self.find_position_3d()
             self.altitude_pub(pos[2])
             self.publish_position(
                 pos, self.ps_pub, self.ps_cov_pub, self.cov)
+            self.publish_position(
+                pos_3d, self.ps_pub_3d, self.ps_cov_pub_3d, self.cov)
             self.ranges = dict()
 
 

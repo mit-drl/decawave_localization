@@ -52,15 +52,18 @@ class EKF(object):
         self.altitude = None
 
         self.F = np.eye(num_states)
-        self.P = 0.1*np.random.rand(num_states, num_states)
+        self.P = np.diag([0.05, 0.05, 0.05, 0.02, 0.02, 0.02])
+        #0.1*np.random.rand(num_states, num_states)
         #self.P = np.eye(num_states)
         self.x = np.zeros((num_states,))
 
         self.uwb_state = np.zeros((len(self.tag_range_topics),num_states))
         self.H = np.zeros((num_states, len(self.tag_range_topics)))
-        self.Q = np.diag([0.1, 0.1, 0.1, 0.07, 0.07, 0.07])
-        uwb_cov = 0.6
-        vel_cov = 0.6
+        w_x = 0.003
+        w_v = 0.006
+        self.Q = np.diag([w_x, w_x, w_x, w_v, w_v, w_v])
+        uwb_cov = 1.0
+        vel_cov = 0.15
         alt_cov = 0.1
         self.R = np.diag([uwb_cov, uwb_cov, uwb_cov, uwb_cov, uwb_cov, uwb_cov,
                              vel_cov, vel_cov, vel_cov, alt_cov])
@@ -106,10 +109,10 @@ class EKF(object):
         cov[17] = 0.05
         self.altitude = alt.altitude
 
-    @n.publisher(EKF_TOPIC, PoseStamped)
+    @n.publisher(EKF_TOPIC, Odometry)
     def ekf_pub(self, ranges, vel_data, yaw, alt):
         z = np.array([])
-        new_pose = PoseStamped()
+        new_pose = Odometry()
         ps_cov = PoseWithCovarianceStamped()
         for tag_name in self.tag_order:
             measurement = ranges[tag_name]
@@ -125,21 +128,20 @@ class EKF(object):
 
             new_pose.header.stamp = rospy.get_rostime()
             new_pose.header.frame_id = self.frame_id
-            new_pose.pose.position.x = self.x[0]
-            new_pose.pose.position.y = self.x[1]
-            new_pose.pose.position.z = self.x[2]
-
+            new_pose.pose.pose.position.x = self.x[0]
+            new_pose.pose.pose.position.y = self.x[1]
+            new_pose.pose.pose.position.z = self.x[2]
             cov = self.P.flatten().tolist()
-
-            ps_cov.header = new_pose.header
-            ps_cov.pose.pose = new_pose.pose
-            self.cov_pub(ps_cov)
+            new_pose.pose.covariance = cov
+            new_pose.twist.twist.linear.x = self.x[3]
+            new_pose.twist.twist.linear.y = self.x[4]
+            new_pose.twist.twist.linear.z = self.x[5]
 
         return new_pose
 
-    @n.publisher(EKF_COV_TOPIC, PoseWithCovarianceStamped)
-    def cov_pub(self, ps_cov):
-        return ps_cov
+    # @n.publisher(EKF_COV_TOPIC, PoseWithCovarianceStamped)
+    # def cov_pub(self, ps_cov):
+    #     return ps_cov
 
     def predict(self, dt):
         self.F = self.transition_matrix(dt)
