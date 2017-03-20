@@ -49,8 +49,8 @@ class EKF(object):
 
         self.uwb_state = np.zeros((len(self.tag_range_topics),num_states))
         self.H = np.zeros((num_states, len(self.tag_range_topics)))
-        self.Q = np.diag([0.1, 0.1, 0.1, 0, 0, 0])
-        self.R = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+        self.Q = np.diag([0.5, 0.5, 0.5, 2, 2, 2])
+        self.R = np.diag([0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
 
         for topic in self.tag_range_topics:
             self.subs.append(rospy.Subscriber(topic, Range, self.range_cb))
